@@ -4,11 +4,11 @@ Inspired by [the-super-tiny-compiler](https://github.com/jamiebuilds/the-super-t
 New to Golang and interestd in AST, I decided to implement the tiny compiler in go and further to support transforming C to Lisp too
 
 ## Goal:
-Tranform statements bewteen List and C
+Transform statements between List and C
 
 ### Example
-1. add(1 substract(2 3)) -> add(1, substrac(2, 3))
-2. add(1, substrac(2, 3)) -> add(1 substract(2 3))
+1. (add 1 (subtract 2 3)) -> add(1, subtract(2, 3))
+2. add(1, subtract(2, 3)) -> (add 1 (subtract 2 3))
 
 
 
