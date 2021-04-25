@@ -7,8 +7,8 @@ import (
 )
 
 type Token struct {
-	Name  string
-	Value string
+	Name  string `json:",omitempty"`
+	Value string `json:",omitempty"`
 }
 
 var blankPattern, _ = regexp.Compile(`\s`)
@@ -78,11 +78,11 @@ func tokenize(input string) []Token{
 	return tokens
 }
 
-// LNode struct for Lisp Node,
+// LNode struct for Lisp AST
 type LNode struct {
-	Kind     string
-	Value    string
-	Children []LNode
+	Kind     string  `json:",omitempty"`
+	Value    string  `json:",omitempty"`
+	Children []LNode `json:",omitempty"`
 }
 
 
@@ -138,23 +138,122 @@ func walk(tokens []Token) LNode {
 
 // CNode struct for C AST
 type CNode struct {
-	Kind string
-	Name string
-	Body []CNode
+	Kind string          `json:",omitempty"`
+	Name string          `json:",omitempty"`
+	Value string         `json:",omitempty"`
+	Body []*CNode         `json:",omitempty"`
 	// must be pointer
-	Expression *CNode
-	Callee *CNode
-	Arguments []CNode
+	Expression *CNode    `json:",omitempty"`
+	Callee *CNode        `json:",omitempty"`
+	Arguments []*CNode   `json:",omitempty"`
+}
+
+
+
+type Visitor interface {
+	Enter(lNode LNode, parent LNode, cNodeParent *CNode) *CNode
+	Leave(lNode LNode, parent LNode, cNodeParent *CNode) *CNode
+}
+
+type ProgramVisitor struct {}
+type CallExpressionVisitor struct {}
+type NumberLiteralVisitor struct {}
+
+func (program *ProgramVisitor) Enter(lNode LNode, parent LNode, cNodeParent *CNode) *CNode {
+	*cNodeParent = CNode{
+		Kind: "Program",
+		Body: []*CNode{},
+	}
+	return cNodeParent
+}
+
+func (program *ProgramVisitor) Leave(lNode LNode,parent LNode, cNodeParent *CNode)  *CNode {
+	// do nothing
+	return nil
+}
+
+func (callExpression *CallExpressionVisitor) Enter(lNode LNode, parent LNode, cNodeParent *CNode) *CNode {
+	expression := CNode{
+		Kind: "CallExpression",
+		Callee: &CNode{
+			Kind: "Identifier",
+			Name: lNode.Value,
+		},
+		Arguments: []*CNode{},
+	}
+
+	if parent.Kind != "CallExpression" {
+		expressionStatement := CNode{
+			Kind: "ExpressionStatement",
+			Expression: &expression,
+		}
+		cNodeParent.Body = append(cNodeParent.Body, &expressionStatement)
+	} else {
+		cNodeParent.Arguments = append(cNodeParent.Arguments, &expression)
+	}
+	return &expression
+}
+
+func (callExpression *CallExpressionVisitor) Leave(lNode LNode, parent LNode, cNodeParent *CNode) *CNode {
+	// do nothing
+	return nil
+}
+
+func (numberLiteral *NumberLiteralVisitor) Enter(lNode LNode, parent LNode, cNodeParent *CNode) *CNode {
+	cNodeParent.Arguments = append(cNodeParent.Arguments, &CNode{Kind: "NumberLiteral", Value: lNode.Value})
+	return nil
+}
+
+func (numberLiteral *NumberLiteralVisitor) Leave(lNode LNode, parent LNode, cNodeParent *CNode) *CNode {
+	// do nothing
+	return nil
+}
+
+
+func traverser(ast LNode, visitors map[string]Visitor) CNode {
+	cNode := &CNode{}
+	traverseLNode(ast, LNode{}, cNode, visitors)
+	return *cNode
+}
+
+func traverseLNode(lNode LNode, parent LNode, cNodeParent *CNode, visitors map[string]Visitor)  {
+
+	visitorFn := visitors[lNode.Kind]
+
+	cNode := visitorFn.Enter(lNode, parent, cNodeParent)
+
+	switch lNode.Kind {
+	case "Program", "CallExpression":
+		for _, child := range lNode.Children {
+			traverseLNode(child, lNode, cNode, visitors)
+		}
+
+	}
+
+	visitorFn.Leave(lNode, parent, cNodeParent)
+}
+
+
+func transform(ast LNode) CNode {
+
+	visitorMap := make(map[string]Visitor)
+	visitorMap["Program"] = &ProgramVisitor{}
+	visitorMap["CallExpression"] = &CallExpressionVisitor{}
+	visitorMap["NumberLiteral"] = &NumberLiteralVisitor{}
+
+	return traverser(ast, visitorMap)
+
 }
 
 
 
 
 
-
-
 func main() {
-	res := parser(tokenize("(add 1 (subtract 2 3))"))
-	res1, _ := json.Marshal(res)
-	fmt.Println(string(res1))
+	//input := "(add 1 (subtract 2 3))"
+	input := "(add 1 2)\n(subtract 3 4)"
+	res := parser(tokenize(input))
+	cAst := transform(res)
+	res2, _ := json.Marshal(cAst)
+	fmt.Println(string(res2))
 }
