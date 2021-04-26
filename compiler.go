@@ -87,20 +87,20 @@ type LNode struct {
 }
 
 
-func parser(tokens []Token) LNode {
+func parser(tokens *[]Token) LNode {
 	ast := LNode{Kind: "Program", Children: []LNode{}}
 
 	idx := 0
 	var node LNode
-	for idx < len(tokens) {
+	for idx < len(*tokens) {
 		node, idx = walk(tokens, idx)
 		ast.Children = append(ast.Children, node)
 	}
 	return ast
 }
 // iterate over tokens and return constructed Node and idx to the next token
-func walk(tokens []Token, idx int) (LNode, int) {
-	token := tokens[idx]
+func walk(tokens *[]Token, idx int) (LNode, int) {
+	token := (*tokens)[idx]
 
 	if token.Name == "number" {
 		idx++
@@ -111,13 +111,13 @@ func walk(tokens []Token, idx int) (LNode, int) {
 	if token.Name == "paren" && token.Value == "(" {
 		// skip "("
 		idx++
-		token = tokens[idx]
+		token = (*tokens)[idx]
 		// token after "(" should be the method
 		node := LNode{Kind: "CallExpression", Value: token.Value, Children: []LNode{}}
 
 		// evaluated to the next token
 		idx++
-		token = tokens[idx]
+		token = (*tokens)[idx]
 
 		// loop till the end of a CallExpression, indicated by ")"
 		var nestedNode LNode
@@ -125,7 +125,7 @@ func walk(tokens []Token, idx int) (LNode, int) {
 			(token.Name == "paren" && token.Value == "(") {
 			nestedNode, idx = walk(tokens, idx)
 			node.Children = append(node.Children, nestedNode)
-			token = tokens[idx]
+			token = (*tokens)[idx]
 		}
 		// skip last token ")"
 		idx++
@@ -269,7 +269,7 @@ func CCodeGenerator(node CNode) string {
 
 func compileListToC(input string) string {
 	tokens := tokenize(input)
-	ast := parser(tokens)
+	ast := parser(&tokens)
 	cAst := transform(ast)
 	return CCodeGenerator(cAst)
 }
