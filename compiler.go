@@ -87,51 +87,49 @@ type LNode struct {
 }
 
 
-var parserIdx = 0
 func parser(tokens []Token) LNode {
-
 	ast := LNode{Kind: "Program", Children: []LNode{}}
 
-
-	for parserIdx < len(tokens) {
-		ast.Children = append(ast.Children, walk(tokens))
+	idx := 0
+	var node LNode
+	for idx < len(tokens) {
+		node, idx = walk(tokens, idx)
+		ast.Children = append(ast.Children, node)
 	}
-
-	// reset
-	parserIdx = 0
 	return ast
 }
-
-func walk(tokens []Token) LNode {
-	token := tokens[parserIdx]
+// iterate over tokens and return constructed Node and idx to the next token
+func walk(tokens []Token, idx int) (LNode, int) {
+	token := tokens[idx]
 
 	if token.Name == "number" {
-		parserIdx++
-		return LNode{Kind: "NumberLiteral", Value: token.Value}
+		idx++
+		return LNode{Kind: "NumberLiteral", Value: token.Value}, idx
 	}
 
 	// look for CallExpression
 	if token.Name == "paren" && token.Value == "(" {
 		// skip "("
-		parserIdx++
-		token = tokens[parserIdx]
+		idx++
+		token = tokens[idx]
 		// token after "(" should be the method
 		node := LNode{Kind: "CallExpression", Value: token.Value, Children: []LNode{}}
 
 		// evaluated to the next token
-		parserIdx++
-		token = tokens[parserIdx]
+		idx++
+		token = tokens[idx]
 
 		// loop till the end of a CallExpression, indicated by ")"
+		var nestedNode LNode
 		for token.Name != "paren" ||
 			(token.Name == "paren" && token.Value == "(") {
-			node.Children = append(node.Children, walk(tokens))
-			token = tokens[parserIdx]
+			nestedNode, idx = walk(tokens, idx)
+			node.Children = append(node.Children, nestedNode)
+			token = tokens[idx]
 		}
 		// skip last token ")"
-		parserIdx++
-
-		return node
+		idx++
+		return node, idx
 	}
 	tokenStr, _ := json.Marshal(token)
 	panic("invalid token: " + string(tokenStr))
