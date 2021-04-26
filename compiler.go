@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 type Token struct {
@@ -167,7 +168,7 @@ func (program *ProgramVisitor) Enter(lNode LNode, parent LNode, cNodeParent *CNo
 	return cNodeParent
 }
 
-func (program *ProgramVisitor) Leave(lNode LNode,parent LNode, cNodeParent *CNode)  *CNode {
+func (program *ProgramVisitor) Leave(lNode LNode, parent LNode, cNodeParent *CNode)  *CNode {
 	// do nothing
 	return nil
 }
@@ -245,15 +246,41 @@ func transform(ast LNode) CNode {
 
 }
 
+func CCodeGenerator(node CNode) string {
 
+	switch node.Kind {
+	case "Program":
+		var exprStmts []string
+		for _, exprStmtNode := range node.Body {
+			exprStmts = append(exprStmts, CCodeGenerator(*exprStmtNode))
+		}
+		return strings.Join(exprStmts, "\n")
+	case "ExpressionStatement":
+		return CCodeGenerator(*node.Expression) + ";"
+	case "CallExpression":
+		var args []string
+		for _, arg := range node.Arguments {
+			args = append(args, CCodeGenerator(*arg))
+		}
+		return fmt.Sprintf("%s(%s)", node.Callee.Name, strings.Join(args, ", "))
+	case "NumberLiteral":
+		return node.Value
+	}
+	panic("Unexpected Node Type: " + node.Kind)
+}
 
+func compileListToC(input string) string {
+	tokens := tokenize(input)
+	ast := parser(tokens)
+	cAst := transform(ast)
+	return CCodeGenerator(cAst)
+}
 
 
 func main() {
-	//input := "(add 1 (subtract 2 3))"
-	input := "(add 1 2)\n(subtract 3 4)"
-	res := parser(tokenize(input))
-	cAst := transform(res)
-	res2, _ := json.Marshal(cAst)
-	fmt.Println(string(res2))
+	input := "(add 1 (subtract 2 3))"
+	fmt.Printf("Input:\n%s\nOutput:\n%s\n", input, compileListToC(input))
+	input2 := "(add 1 2)\n(subtract 3 4)"
+	fmt.Printf("Input:\n%s\nOutput:\n%s\n", input2, compileListToC(input2))
+
 }
